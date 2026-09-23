@@ -2,6 +2,8 @@
 
 #include "esphome/core/log.h"
 
+#include <array>
+
 namespace esphome::bit_modbus_switch {
 
 static const char *const TAG = "bit_modbus_switch";
@@ -34,7 +36,15 @@ void BitModbusSwitch::write_state(bool state) {
   }
   ESP_LOGD(TAG, "'%s': register 0x%04X: 0x%04X -> 0x%04X (bit 0x%04X %s)", this->get_name().c_str(),
            this->write_address(), current, merged, (unsigned) this->bitmask, ONOFF(state));
-  const bool queued = this->write_single_register(this->write_address(), merged);
+  // FC 0x10 carries the same register value in a different frame shape; the relay blocks answer only
+  // that one, so the merge result is identical either way and only the function code differs.
+  bool queued;
+  if (this->use_write_multiple_) {
+    const std::array<uint16_t, 1> values{merged};
+    queued = this->write_multiple_registers(this->write_address(), values);
+  } else {
+    queued = this->write_single_register(this->write_address(), merged);
+  }
   if (!queued) {
     ESP_LOGW(TAG, "'%s': write refused by hub, state not published", this->get_name().c_str());
     return;

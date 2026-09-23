@@ -56,6 +56,7 @@ class BitModbusSwitch final : public Component, public switch_::Switch, public m
   }
 
   void set_parent(modbus_controller::ModbusController *parent) { this->set_controller_(parent); }
+  void set_use_write_multiple(bool use_write_multiple) { this->use_write_multiple_ = use_write_multiple; }
 
   void setup() override;
   void write_state(bool state) override;
@@ -66,6 +67,10 @@ class BitModbusSwitch final : public Component, public switch_::Switch, public m
   bool assumed_state() override { return false; }
 
   RegisterState *reg_{nullptr};
+  /// false -> FC 0x06 (Write Single Register), true -> FC 0x10 (Write Multiple Registers, one register).
+  /// The ectoControl relay blocks answer only FC 0x10 (see docs/baud-proxy-design.md §6), so the relay
+  /// switches set this true; the stock switch's default is false and is kept here for parity.
+  bool use_write_multiple_{false};
 };
 
 }  // namespace esphome::bit_modbus_switch
