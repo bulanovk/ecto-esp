@@ -1,0 +1,76 @@
+esphome:
+  name: baud-router-check
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+external_components:
+  - source: {type: local, path: ../components}
+    components: [baud_router]
+
+logger:
+  level: DEBUG
+
+uart:
+  - id: realPort
+    tx_pin: 17
+    rx_pin: 16
+    baud_rate: 9600
+    flow_control_pin: 23
+    flush_timeout: 100ms
+
+baud_router:
+  id: intPort
+  uart_id: realPort
+  baud_rate: 9600
+  default_baud: 19200
+  map:
+    - {address: 0x3, baud_rate: 9600}
+    - {address: 0x1, baud_rate: 19200}
+    - {address: 0x2, baud_rate: 19200}
+    - {address: 0x4, baud_rate: 19200}
+
+modbus:
+  - id: intBus
+    uart_id: intPort
+    role: client
+    send_wait_time: 1000ms
+    turnaround_time: 50ms
+
+modbus_controller:
+  - {id: dtsu, modbus_id: intBus, address: 0x3, update_interval: 2s}
+  - {id: b1, modbus_id: intBus, address: 0x1, update_interval: 2s}
+  - {id: r1, modbus_id: intBus, address: 0x4, update_interval: 2s}
+
+sensor:
+  - platform: modbus_controller
+    modbus_controller_id: dtsu
+    address: 0x2006
+    name: t_voltage
+    register_type: holding
+    value_type: FP32
+  - platform: modbus_controller
+    modbus_controller_id: b1
+    address: 0x0018
+    name: t_coolant
+    register_type: holding
+    value_type: S_WORD
+    filters: [{multiply: 0.1}]
+  - platform: modbus_controller
+    modbus_controller_id: r1
+    address: 0x0010
+    name: t_relay_mask
+    register_type: holding
+    value_type: U_WORD
+
+switch:
+  - platform: modbus_controller
+    modbus_controller_id: r1
+    address: 0x0010
+    bitmask: 0x0100
+    register_type: holding
+    name: t_relay_1
+    assumed_state: true
+    restore_mode: RESTORE_DEFAULT_OFF
