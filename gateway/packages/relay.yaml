@@ -1,0 +1,67 @@
+# ── Модуль реле 10 каналов, slave 0x1 @ 19200 ────────────────────────────────
+# Все 10 каналов — биты одного регистра 0x0010, который читается и пишется
+# целиком (read-modify-write под мьютексом, см. components/bit_modbus_switch/).
+# Контроллер r1 объявлен в packages/bus.yaml.
+#
+# ПОРЯДОК БИТ ПО ПРОВЕРКЕ: раскладка взята из docs/PROTOCOL.md §6.4 репозитория
+# bulanovk/ec-adapter (регистр
+# 0x0010, устройства 0xC0/0xC1) — НЕ путать с §6.2: там у contact splitter (0x59)
+# тот же адрес 0x0010, но это ДРУГОЕ устройство с прямой нумерацией битов от 0.
+# На железе не проверялась. Переключить «Relay 1» и посмотреть r1_relay_mask_raw:
+# ожидается 0x0100 (каналы 1-8 = биты 8-15, каналы 9-10 = биты 0-1).
+#
+# Таймеры реле (регистры 0x0020..0x0029) сознательно НЕ поддержаны — вне объёма.
+
+binary_sensor:
+  - !include
+      file: ../templates/online-status.yaml
+      vars:
+        sid: r1_online
+        sname: "R1 Relay Online"
+        dev: r1_relay_device
+        ctrl: r1
+
+sensor:
+  # Сырая маска 10 каналов — диагностика: видно, какие биты реально выставлены.
+  - platform: modbus_controller
+    modbus_controller_id: r1
+    device_id: r1_relay_device
+    id: r1_relay_mask_raw
+    name: "R1 Relay Mask (raw)"
+    address: 0x0010
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+switch:
+  - !include
+      file: ../templates/relay-switch.yaml
+      vars: {n: 1, smask: "0x0100"}
+  - !include
+      file: ../templates/relay-switch.yaml
+      vars: {n: 2, smask: "0x0200"}
+  - !include
+      file: ../templates/relay-switch.yaml
+      vars: {n: 3, smask: "0x0400"}
+  - !include
+      file: ../templates/relay-switch.yaml
+      vars: {n: 4, smask: "0x0800"}
+  - !include
+      file: ../templates/relay-switch.yaml
+      vars: {n: 5, smask: "0x1000"}
+  - !include
+      file: ../templates/relay-switch.yaml
+      vars: {n: 6, smask: "0x2000"}
+  - !include
+      file: ../templates/relay-switch.yaml
+      vars: {n: 7, smask: "0x4000"}
+  - !include
+      file: ../templates/relay-switch.yaml
+      vars: {n: 8, smask: "0x8000"}
+  - !include
+      file: ../templates/relay-switch.yaml
+      vars: {n: 9, smask: "0x0001"}
+  - !include
+      file: ../templates/relay-switch.yaml
+      vars: {n: 10, smask: "0x0002"}

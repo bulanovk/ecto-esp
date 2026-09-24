@@ -1,0 +1,17 @@
+# Шаблон канала реле: один бит в общей маске 0x0010.
+#
+# vars:
+#   n      — номер канала (1..10), из него выводятся id, имя и bitmask
+#   smask  — битовая маска канала (строка, "0x0100")
+#
+# use_write_multiple: true — блоки реле ectoControl отвечают только на FC 0x10;
+# без этого запись уходит FC 0x06 и отваливается по таймауту.
+platform: bit_modbus_switch
+modbus_controller_id: r1
+id: r1_relay_${n}
+name: "R1 Relay ${n}"
+device_id: r1_relay_device
+address: 0x0010
+register_type: holding
+use_write_multiple: true
+bitmask: ${smask}

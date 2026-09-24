@@ -1,0 +1,19 @@
+# Шаблон бинарного сенсора «устройство на связи».
+#
+# vars:
+#   sid    — id сущности (например r1_online)
+#   sname  — имя в HA
+#   dev    — id устройства ESPHome
+#   ctrl   — id modbus_controller, у которого читается get_module_offline()
+#
+# Значение публикуется автоматизациями on_offline/on_online у контроллера
+# (см. packages/bus.yaml), а lambda даёт начальное состояние при загрузке.
+# device_class: connectivity => в HA показывается как Connected/Disconnected.
+platform: template
+id: ${sid}
+name: "${sname}"
+device_class: connectivity
+device_id: ${dev}
+entity_category: diagnostic
+lambda: |-
+  return id(${ctrl}).get_module_offline() == false;

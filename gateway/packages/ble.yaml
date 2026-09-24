@@ -1,0 +1,48 @@
+# ── BLE-термометры LYWSD03MMC (прошивка pvvx, формат BTHome v2) ──────────────
+# MAC'и и имена комнат взяты из вывода bluetooth-сканера HA (адаптер hci0).
+# RSSI в комментариях — то, что видит hci0 в Котельной; ESP32 на том же месте
+# увидит примерно столько же (его радио слабее USB-донгла), поэтому запаса до
+# порога чувствительности у Bedroom (-75) немного. Если пакеты будут теряться —
+# смотреть в лог на "BLE scan window" и поднимать window (потолок для Wi-Fi 600ms).
+#
+# Приём пассивный: термометры сами шлют рекламу, ESPHome её слушает. Сопряжения
+# нет, батарея термометров не расходуется.
+#
+# window: 300ms — окно скана соблюдается строго начиная с ESP-IDF 5.5.5 (в более
+# старых версиях Espressif его игнорировал, и скан занимал эфир целиком). ESPHome
+# на этой версии IDF сам ставит окно = interval (320ms) при наличии Wi-Fi, так что
+# 300ms — не агрессивнее дефолта. Рекомендуемый потолок для Wi-Fi на том же радио —
+# 600ms. Больше окно => выше шанс поймать слабый пакет (ATC Bedroom виден с RSSI -75).
+# active: false — scan-request'ы не шлём: LYWSD03MMC отдаёт всё в самой рекламе.
+
+esp32_ble_tracker:
+  scan_parameters:
+    interval: 320ms
+    window: 300ms
+    active: false
+
+sensor:
+  - !include
+      file: ../templates/ble-thermometer.yaml
+      vars: {smac: "A4:C1:38:3D:B4:56", sname: "ATC Bedroom Temperature"}
+  - !include
+      file: ../templates/ble-thermometer.yaml
+      vars: {smac: "A4:C1:38:4B:F5:95", sname: "ATC Living Room Table Temperature"}
+  - !include
+      file: ../templates/ble-thermometer.yaml
+      vars: {smac: "A4:C1:38:68:3A:F1", sname: "ATC Hall Temperature"}
+  - !include
+      file: ../templates/ble-thermometer.yaml
+      vars: {smac: "A4:C1:38:73:97:8C", sname: "ATC Guest Room Temperature"}
+  - !include
+      file: ../templates/ble-thermometer.yaml
+      vars: {smac: "A4:C1:38:B7:55:95", sname: "ATC Bathroom Temperature"}
+  - !include
+      file: ../templates/ble-thermometer.yaml
+      vars: {smac: "A4:C1:38:BB:95:0A", sname: "ATC Childrens Room Temperature"}
+  - !include
+      file: ../templates/ble-thermometer.yaml
+      vars: {smac: "A4:C1:38:F5:F6:59", sname: "ATC Tech Room Temperature"}
+  - !include
+      file: ../templates/ble-thermometer.yaml
+      vars: {smac: "A4:C1:38:F6:19:41", sname: "ATC Living Room Temperature"}

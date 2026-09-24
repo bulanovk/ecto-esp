@@ -1,0 +1,151 @@
+# ── DTSU666: трёхфазный счётчик, slave 0x3 @ 9600 ────────────────────────────
+# Контроллер intController объявлен в packages/bus.yaml (там же его on_offline,
+# который гасит эти сенсоры в NAN при потере связи).
+
+binary_sensor:
+  - !include
+      file: ../templates/online-status.yaml
+      vars:
+        sid: dtsu666_online
+        sname: "DTSU666 Online"
+        dev: dtsu666_device
+        ctrl: intController
+
+sensor:
+  # Мощность по фазам, W (регистр FP32, ×0.1)
+  - !include
+      file: ../templates/modbus-sensor.yaml
+      vars:
+        sid: dtsu666_power_a
+        sname: "Phase A Power"
+        ctrl: intController
+        dev: dtsu666_device
+        saddr: "0x2014"
+        sunit: "W"
+        svtype: FP32
+        smult: "0.1"
+        sdec: "0"
+  - !include
+      file: ../templates/modbus-sensor.yaml
+      vars:
+        sid: dtsu666_power_b
+        sname: "Phase B Power"
+        ctrl: intController
+        dev: dtsu666_device
+        saddr: "0x2016"
+        sunit: "W"
+        svtype: FP32
+        smult: "0.1"
+        sdec: "0"
+  - !include
+      file: ../templates/modbus-sensor.yaml
+      vars:
+        sid: dtsu666_power_c
+        sname: "Phase C Power"
+        ctrl: intController
+        dev: dtsu666_device
+        saddr: "0x2018"
+        sunit: "W"
+        svtype: FP32
+        smult: "0.1"
+        sdec: "0"
+  - !include
+      file: ../templates/modbus-sensor.yaml
+      vars:
+        sid: dtsu666_power_total
+        sname: "Phase Total Power"
+        ctrl: intController
+        dev: dtsu666_device
+        saddr: "0x2012"
+        sunit: "W"
+        svtype: FP32
+        smult: "0.1"
+        sdec: "0"
+
+  # Напряжение по фазам, V
+  - !include
+      file: ../templates/modbus-sensor.yaml
+      vars:
+        sid: dtsu666_voltage_a
+        sname: "Phase A Voltage"
+        ctrl: intController
+        dev: dtsu666_device
+        saddr: "0x2006"
+        sunit: "V"
+        svtype: FP32
+        smult: "0.1"
+        sdec: "1"
+  - !include
+      file: ../templates/modbus-sensor.yaml
+      vars:
+        sid: dtsu666_voltage_b
+        sname: "Phase B Voltage"
+        ctrl: intController
+        dev: dtsu666_device
+        saddr: "0x2008"
+        sunit: "V"
+        svtype: FP32
+        smult: "0.1"
+        sdec: "1"
+  - !include
+      file: ../templates/modbus-sensor.yaml
+      vars:
+        sid: dtsu666_voltage_c
+        sname: "Phase C Voltage"
+        ctrl: intController
+        dev: dtsu666_device
+        saddr: "0x200A"
+        sunit: "V"
+        svtype: FP32
+        smult: "0.1"
+        sdec: "1"
+
+  # Ток по фазам, A (×0.001)
+  - !include
+      file: ../templates/modbus-sensor.yaml
+      vars:
+        sid: dtsu666_current_a
+        sname: "Phase A Current"
+        ctrl: intController
+        dev: dtsu666_device
+        saddr: "0x200C"
+        sunit: "A"
+        svtype: FP32
+        smult: "0.001"
+        sdec: "2"
+  - !include
+      file: ../templates/modbus-sensor.yaml
+      vars:
+        sid: dtsu666_current_b
+        sname: "Phase B Current"
+        ctrl: intController
+        dev: dtsu666_device
+        saddr: "0x200E"
+        sunit: "A"
+        svtype: FP32
+        smult: "0.001"
+        sdec: "2"
+  - !include
+      file: ../templates/modbus-sensor.yaml
+      vars:
+        sid: dtsu666_current_c
+        sname: "Phase C Current"
+        ctrl: intController
+        dev: dtsu666_device
+        saddr: "0x2010"
+        sunit: "A"
+        svtype: FP32
+        smult: "0.001"
+        sdec: "2"
+
+  # Суммарное потребление, кВт·ч — значение уже в нужных единицах, фильтр не нужен.
+  - platform: modbus_controller
+    modbus_controller_id: intController
+    device_id: dtsu666_device
+    id: dtsu666_consumed
+    name: "Total Consumed"
+    address: 0x401E
+    register_type: holding
+    value_type: FP32
+    unit_of_measurement: "kWh"
+    accuracy_decimals: 2

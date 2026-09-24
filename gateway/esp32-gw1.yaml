@@ -1,0 +1,100 @@
+# DTSU666 Collector + 2 ectoControl boiler adapters + 10ch relay module + BLE thermometers
+#
+# Файл живёт в репозитории компонентов (bulanovk/ecto-esp), каталог gateway/.
+# В Home Assistant он НЕ копируется: Device Builder подключает его как пакет —
+#   packages:
+#     gw:
+#       url: https://github.com/bulanovk/ecto-esp
+#       ref: main
+#       files: [gateway/esp32-gw1.yaml]
+#       refresh: always
+# Так репозиторий остаётся единственным источником истины: и компоненты, и конфиг
+# приезжают из одного клона. Подробности и предусловия — docs/ARCHITECTURE.md.
+#
+# Архитектура шины (один UART, две скорости), правила безопасности и то, что нужно
+# сделать руками на стороне Home Assistant — в docs/ARCHITECTURE.md.
+#
+# Конфиг разбит на пакеты:
+#   packages/bus.yaml       uart, baud_router, modbus, все четыре modbus_controller
+#   packages/dtsu666.yaml   счётчик DTSU666 (slave 0x3 @ 9600)
+#   packages/boilers.yaml   адаптеры бойлеров b1/b2 (slave 0x4/0x2 @ 19200)
+#   packages/relay.yaml     модуль реле 10 каналов (slave 0x1 @ 19200)
+#   packages/ble.yaml       BLE-термометры LYWSD03MMC (пассивный приём BTHome v2)
+#
+# Повторяющиеся сущности описываются шаблонами из templates/ через !include + vars:
+#   templates/modbus-sensor.yaml    одно значение регистра holding
+#   templates/online-status.yaml    бинарный сенсор «устройство на связи»
+#   templates/relay-switch.yaml     канал реле (бит в маске 0x0010)
+#   templates/ble-thermometer.yaml  BLE-термометр с watchdog'ом на 5 минут
+#
+# Порядок ключей packages: НЕ влияет на очередь опроса (она задаётся порядком
+# modbus_controller в bus.yaml), но списки из разных пакетов склеиваются в порядке
+# объявления — sensor'ы DTSU идут раньше бойлеров и реле, как и было в монолите.
+
+esphome:
+  name: esp32-gw1
+  friendly_name: esp32-gw1
+  # Виртуальное устройство: все 10 каналов реле (slave 1) сгруппируются в HA
+  # как отдельное устройство "R1 Relay 10ch" рядом с самим esp32-gw1.
+  devices:
+    - id: r1_relay_device
+      name: "R1 Relay 10ch"
+    - id: dtsu666_device
+      name: "DTSU666 Meter"
+    - id: b1_boiler_device
+      name: "B1 Boiler Adapter"
+    - id: b2_boiler_device
+      name: "B2 Boiler Adapter"
+
+esp32:
+  board: esp32dev
+  framework:
+    advanced:
+      minimum_chip_revision: "3.1"
+    type: esp-idf
+
+# Компоненты (baud_router, bit_modbus_switch) живут в репозитории
+# https://github.com/bulanovk/ecto-esp (каталог components/) и подтягиваются оттуда.
+external_components:
+  - source:
+      type: git
+      url: https://github.com/bulanovk/ecto-esp
+      ref: main
+    refresh: always
+    components: [baud_router, bit_modbus_switch]
+
+logger:
+  level: DEBUG
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  use_address: 192.168.3.95
+
+api:
+  encryption:
+    # Ключ живёт в secrets.yaml, а не здесь: репозиторий публичный, и конфиг
+    # раздаётся как remote-пакет. Значение берётся из secrets.yaml ПОТРЕБИТЕЛЯ
+    # (у Device Builder — /config/esphome/secrets.yaml), в репозиторий не едет.
+    key: !secret esp32-gw1_api_key
+
+ota:
+  - platform: esphome
+    encryption:
+    allow_partition_access: true
+
+# Веб-интерфейс (http://192.168.3.95/).
+web_server:
+
+sensor:
+  # Температура самого ESP32 — к шине отношения не имеет, поэтому живёт здесь, в базе.
+  - platform: internal_temperature
+    name: "Internal Temperature"
+    id: "esp_temp"
+
+packages:
+  bus: !include packages/bus.yaml
+  dtsu666: !include packages/dtsu666.yaml
+  boilers: !include packages/boilers.yaml
+  relay: !include packages/relay.yaml
+  ble: !include packages/ble.yaml

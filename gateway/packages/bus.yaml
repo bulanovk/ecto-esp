@@ -1,0 +1,165 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Шина: один UART, две скорости, четыре slave'а.
+#
+#   realPort  — настоящий uart: (GPIO17/16, DE=GPIO23), скорость задаётся драйверу
+#   intPort   — baud_router: прокси-порт, который хаб видит как UARTComponent
+#     └── intBus (role: client, turnaround_time 50ms, send_wait_time 1000ms)
+#           ├── intController — DTSU666,  slave 0x3 @ 9600
+#           └── r1 (0x1), b2 (0x2), b1 (0x4) — адаптеры бойлеров и реле @ 19200
+#
+#   Скорость переключается В МОМЕНТ ОТПРАВКИ КАДРА, внутри BaudRouter::write_array():
+#   первый байт кадра — это адрес slave'а, по нему прокси выбирает скорость и, если
+#   она отличается от текущей скорости живого порта, делает set_baud_rate +
+#   load_settings(false) ПЕРЕД записью байт. Кадр уходит целиком на своей скорости.
+#   Никаких окон, скриптов и расписаний: хаб видит один обычный UART и просто
+#   опрашивает всех подряд, а скорость под каждым кадром подставляется сама.
+#
+# Почему это безопасно (проверено по исходникам ESPHome 2026.9.0):
+#   1. `waiting_for_response_` ставится ПОСЛЕ write_array(), а tx_blocked() его
+#      учитывает => следующий кадр не будет выбран, пока ответ на текущий не принят
+#      или не истёк send_wait_time. В линии всегда ровно один кадр — это гарантия кода,
+#      а не оценка таймингов.
+#   2. Пауза между кадрами (frame_delay_us_ = 3.5 символа) считается ОДИН раз, в
+#      Modbus::setup(), из геттеров того UARTComponent, который ему дали. Значит она
+#      берётся из baud_rate прокси, и прокси ОБЯЗАН держать его равным МИНИМУМУ парка
+#      (9600). Если поставить 19200, пауза станет короче 3.5 символов на 9600-устройстве
+#      и кадры DTSU666 начнут склеиваться. Проверяется автоматически в _validate_routes.
+#   3. Смена скорости = снос и переустановка драйвера (load_settings). Свежее RX-кольцо
+#      само отбрасывает байты, принятые на старой скорости, — отдельная очистка не нужна.
+#   4. DE-пин живёт на `uart:` (аппаратный RS485 half-duplex), а НЕ на `modbus:`:
+#      при software-DE хаб опускает линию сразу после write_array(), а прокси в этот
+#      момент ещё держит кадр в драйвере. Аппаратный режим направление держит сам.
+#
+# ПОРЯДОК КОНТРОЛЛЕРОВ ЗДЕСЬ ВАЖЕН: это порядок опроса в очереди хаба. Не
+# переставлять без причины — от него зависит, как часто успевает опрашиваться
+# каждое устройство. Контроллеры лежат в этом файле (а не в своих пакетах), чтобы
+# топология шины читалась в одном месте и очередь не перемешивалась.
+# ─────────────────────────────────────────────────────────────────────────────
+
+uart:
+  # Настоящий порт. Прокси будет менять ему скорость перед каждым кадром.
+  - id: realPort
+    tx_pin: 17
+    rx_pin: 16
+    baud_rate: 9600        # стартовая скорость; реальная подставляется под каждый кадр
+    stop_bits: 1
+    data_bits: 8
+    parity: NONE
+    rx_buffer_size: 512    # с запасом под ответ 20 регистров (45 байт) + ответы DTSU
+    # DE-пин ТОЛЬКО здесь: аппаратный UART_MODE_RS485_HALF_DUPLEX. На `modbus:` его
+    # ставить нельзя — там software-переключение, которое отпустит линию раньше, чем
+    # кадр покинет драйвер. load_settings() переустанавливает режим сам, поэтому
+    # RS485-режим сохраняется через все переключения скорости.
+    flow_control_pin: 23
+    # ОБЯЗАТЕЛЬНО: без него flush() уходит в uart_wait_tx_done(portMAX_DELAY) и висит вечно.
+    # Нужен не нам, а всему, что зовёт flush() (в т.ч. штатному software-DE пути).
+    flush_timeout: 100ms
+    # rx_full_threshold: 120  # включать ТОЛЬКО если кадры на 19200 приходят обрезанными
+
+# Прокси-порт: хаб видит его как обычный UARTComponent. baud_rate здесь — НЕ скорость
+# устройств, а база для расчёта паузы между кадрами (см. п.2 выше), поэтому он равен
+# минимуму парка.
+baud_router:
+  - id: intPort
+    uart_id: realPort
+    baud_rate: 9600         # МИНИМУМ парка. НЕ поднимать до 19200 (проверяется в схеме)
+    default_baud: 19200     # адрес, которого нет в map: — считаем 19200-устройством
+    map:
+      - { address: 0x3, baud_rate: 9600 }   # DTSU666
+      - { address: 0x1, baud_rate: 19200 }  # модуль реле 10ch
+      - { address: 0x2, baud_rate: 19200 }  # бойлер 2
+      - { address: 0x4, baud_rate: 19200 }  # бойлер 1
+
+modbus:
+  - id: intBus
+    uart_id: intPort        # ← прокси, не realPort
+    role: client
+    # flow_control_pin убран отсюда — он на realPort (аппаратный RS485)
+    send_wait_time: 1000ms  # это ТАЙМАУТ ОТВЕТА, а не пауза между кадрами. Типовой ответ
+                            # ectoControl/DTSU666 — десятки мс; 1000 мс ограничивает ущерб
+                            # от мёртвого устройства (мёртвый slave стоит ~1 с)
+    turnaround_time: 50ms   # пауза МЕЖДУ кадрами = frame_delay(3.5 симв.) + это значение.
+                            # Дефолт 600 мс дал бы 1.8 с на обход из трёх запросов
+
+modbus_controller:
+  # ── DTSU666 @9600 ──────────────────────────────────────────────────────────
+  - id: intController
+    address: 0x3
+    modbus_id: intBus
+    update_interval: 10s
+    setup_priority: -10
+    # 1 попытка повтора: одна CRC-помеха не должна выкидывать счётчик в offline.
+    max_cmd_retries: 1
+    on_offline:
+      - binary_sensor.template.publish:
+          id: dtsu666_online
+          state: OFF
+      # NAN => в HA «Неизвестно» вместо залипшего последнего значения.
+      # Механизм: HA отбрасывает не-конечные значения в native_value (не через
+      # missing_state — internal_send_state_to_frontend всегда ставит has_state(true)).
+      # Следующий успешный опрос вернёт реальные числа.
+      - lambda: |-
+          id(dtsu666_power_a).publish_state(NAN);
+          id(dtsu666_power_b).publish_state(NAN);
+          id(dtsu666_power_c).publish_state(NAN);
+          id(dtsu666_power_total).publish_state(NAN);
+          id(dtsu666_voltage_a).publish_state(NAN);
+          id(dtsu666_voltage_b).publish_state(NAN);
+          id(dtsu666_voltage_c).publish_state(NAN);
+          id(dtsu666_current_a).publish_state(NAN);
+          id(dtsu666_current_b).publish_state(NAN);
+          id(dtsu666_current_c).publish_state(NAN);
+          id(dtsu666_consumed).publish_state(NAN);
+    on_online:
+      - binary_sensor.template.publish:
+          id: dtsu666_online
+          state: ON
+
+  # ── Адаптеры бойлеров и реле @19200 ────────────────────────────────────────
+  - id: b1
+    address: 0x4            # ← бойлер переадресован на 0x4 (было 0x1; 0x1 теперь у реле)
+    modbus_id: intBus
+    update_interval: 2s
+    setup_priority: -10
+    max_cmd_retries: 0      # мёртвое устройство стоит ровно один таймаут, а не 4
+    on_offline:
+      - binary_sensor.template.publish:
+          id: b1_online
+          state: OFF
+      - lambda: id(b1_coolant_temp).publish_state(NAN);
+    on_online:
+      - binary_sensor.template.publish:
+          id: b1_online
+          state: ON
+
+  - id: b2
+    address: 0x2
+    modbus_id: intBus
+    update_interval: 2s
+    setup_priority: -10
+    max_cmd_retries: 0
+    on_offline:
+      - binary_sensor.template.publish:
+          id: b2_online
+          state: OFF
+      - lambda: id(b2_coolant_temp).publish_state(NAN);
+    on_online:
+      - binary_sensor.template.publish:
+          id: b2_online
+          state: ON
+
+  - id: r1
+    address: 0x1            # ← реле переадресовано на 0x1 (было 0x4)
+    modbus_id: intBus
+    update_interval: 20s
+    setup_priority: -10
+    max_cmd_retries: 0
+    on_offline:
+      - binary_sensor.template.publish:
+          id: r1_online
+          state: OFF
+      - lambda: id(r1_relay_mask_raw).publish_state(NAN);
+    on_online:
+      - binary_sensor.template.publish:
+          id: r1_online
+          state: ON

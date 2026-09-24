@@ -1,0 +1,51 @@
+# ── Адаптеры бойлеров ectoControl: b1 (slave 0x4), b2 (slave 0x2) @ 19200 ────
+# Читается по одному регистру на устройство — этого достаточно, чтобы проверять
+# сам поллинг и переключение скорости на шине. Остальные регистры добавляются по
+# мере надобности: общий блок 0x0010..0x0023 читается одним кадром, поэтому
+# расширять список дёшево (см. docs/PROTOCOL.md в репозитории bulanovk/ec-adapter).
+#
+# Контроллеры b1/b2 объявлены в packages/bus.yaml (там же их on_offline, который
+# гасит эти сенсоры в NAN при потере связи).
+
+binary_sensor:
+  - !include
+      file: ../templates/online-status.yaml
+      vars:
+        sid: b1_online
+        sname: "B1 Boiler Online"
+        dev: b1_boiler_device
+        ctrl: b1
+  - !include
+      file: ../templates/online-status.yaml
+      vars:
+        sid: b2_online
+        sname: "B2 Boiler Online"
+        dev: b2_boiler_device
+        ctrl: b2
+
+sensor:
+  # Температура теплоносителя, s16 ×0.1 (регистр 0x0018)
+  - !include
+      file: ../templates/modbus-sensor.yaml
+      vars:
+        sid: b1_coolant_temp
+        sname: "B1 Coolant Temperature"
+        ctrl: b1
+        dev: b1_boiler_device
+        saddr: "0x0018"
+        sunit: "°C"
+        svtype: S_WORD
+        smult: "0.1"
+        sdec: "1"
+  - !include
+      file: ../templates/modbus-sensor.yaml
+      vars:
+        sid: b2_coolant_temp
+        sname: "B2 Coolant Temperature"
+        ctrl: b2
+        dev: b2_boiler_device
+        saddr: "0x0018"
+        sunit: "°C"
+        svtype: S_WORD
+        smult: "0.1"
+        sdec: "1"

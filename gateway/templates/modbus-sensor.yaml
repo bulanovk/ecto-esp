@@ -1,0 +1,28 @@
+# Шаблон modbus-сенсора: одно значение регистра holding.
+#
+# vars:
+#   sid     — id сущности (например dtsu666_power_a)
+#   sname   — имя в HA
+#   ctrl    — id modbus_controller, который опрашивает устройство
+#   dev     — id устройства ESPHome (группировка в HA)
+#   saddr   — адрес регистра (строка, "0x2014")
+#   sunit   — единица измерения ("W", "V", "A", "kWh", "°C")
+#   svtype  — FP32 | S_WORD | U_WORD
+#   smult   — множитель фильтра (строка, "0.1")
+#   sdec    — знаков после запятой
+#
+# ВНИМАНИЕ: у всех сенсоров через этот шаблон есть фильтр multiply. Значения,
+# которым фильтр не нужен (например уже готовые кВт·ч), в шаблоне не участвуют —
+# они расписаны явно, чтобы не тащить сюда !extend/!remove.
+platform: modbus_controller
+modbus_controller_id: ${ctrl}
+device_id: ${dev}
+id: ${sid}
+name: "${sname}"
+address: ${saddr}
+register_type: holding
+value_type: ${svtype}
+unit_of_measurement: "${sunit}"
+filters:
+  - multiply: ${smult}
+accuracy_decimals: ${sdec}
