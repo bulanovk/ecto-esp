@@ -1,8 +1,34 @@
-# Gitignore settings for ESPHome
-# This is an example and may include too much for your use-case.
-# You can modify this file to suit your needs.
-/.esphome/
-/secrets.yaml
+# ── ESPHome ──────────────────────────────────────────────────────────────────
+# Каталоги сборки. ESPHome создаёт .esphome/ рядом с КАЖДЫМ собранным конфигом
+# (в корне, gateway/, tests/) — поэтому шаблон без ведущего слэша.
+.esphome/
+
+# Секреты: Wi-Fi, OTA, ключ API. Игнорируется на ЛЮБОЙ глубине намеренно —
+# конфиг раздаётся как remote-пакет, и один случайно закоммиченный
+# secrets.yaml утечёт в публичный репозиторий.
+secrets.yaml
+
+# Резервные копии и временные файлы редакторов.
 *.bak-*
+*.orig
+*.rej
+*~
+*.swp
+*.swo
+
+# ── Python (components/) ─────────────────────────────────────────────────────
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# ── Инструменты ──────────────────────────────────────────────────────────────
+.serena/
+.claude/settings.local.json
+.vscode/
+.idea/
+
+# ── Логи и мусор ОС ──────────────────────────────────────────────────────────
+*.log
+.DS_Store
+Thumbs.db
