@@ -1,0 +1,51 @@
+# Шаблон климат-сущности: термостат комнаты, управляющий каналом реле.
+#
+# vars:
+#   cid     — id климата (например c_bedroom)
+#   cname   — имя в HA ("Bedroom Climate")
+#   csensor — id BLE-термометра этой комнаты
+#   crelay  — id канала реле (r1_relay_1)
+#
+# ИНВЕРТИРОВАННАЯ ЛОГИКА. Реле — не «нагреватель», а его выключатель:
+#   heat_action (нужно греть) -> реле ВЫКЛЮЧЕНО
+#   idle_action (греть не надо) -> реле ВКЛЮЧЕНО
+# Поэтому switch.turn_off стоит в heat_action, а switch.turn_on — в idle_action.
+# Менять местами только вместе с пониманием, что реле управляет нагрузкой
+# в обратной полярности.
+#
+# watchdog от пропавшего датчика получается бесплатно, отдельный interval не нужен:
+#   BLE-шаблон ставит filters: timeout: 5min -> публикуется NaN ->
+#   compute_action_() (thermostat_climate.cpp) при isnan(current_temperature)
+#   безусловно возвращает CLIMATE_ACTION_OFF -> срабатывает idle_action ->
+#   реле ВКЛЮЧАЕТСЯ. То есть при потере данных реле переходит в состояние
+#   «греть не надо» — то же, что и при исправном датчике выше уставки.
+#
+# on_boot_restore_from: MEMORY — ESPHome хранит mode и уставку в flash и
+# восстанавливает их после перезагрузки (Climate::restore_state_). Уставка
+# задаётся ТОЛЬКО через preset: ключи default_target_temperature_* в корне
+# удалены из ESPHome и роняют валидацию.
+
+platform: thermostat
+id: ${cid}
+name: "${cname}"
+sensor: ${csensor}
+min_idle_time: 1s
+heat_deadband: 0.1
+heat_overrun: 0.1
+# Обязательные ключи схемы при heat_action (climate.py, validate_thermostat).
+# 0s = минимум; внутри ESPHome всё равно поднимает до 1 с
+# (set_timer_duration_in_sec_, min_timer_duration_ = 1).
+min_heating_run_time: 0s
+min_heating_off_time: 0s
+visual:
+  min_temperature: 10
+  max_temperature: 30
+on_boot_restore_from: MEMORY
+preset:
+  - name: Home
+    default_target_temperature_low: 23.0
+default_preset: Home
+heat_action:
+  - switch.turn_off: ${crelay}
+idle_action:
+  - switch.turn_on: ${crelay}

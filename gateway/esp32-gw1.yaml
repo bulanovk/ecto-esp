@@ -20,12 +20,14 @@
 #   packages/boilers.yaml   адаптеры бойлеров b1/b2 (slave 0x4/0x2 @ 19200)
 #   packages/relay.yaml     модуль реле 10 каналов (slave 0x1 @ 19200)
 #   packages/ble.yaml       BLE-термометры LYWSD03MMC (пассивный приём BTHome v2)
+#   packages/climate.yaml   климат по комнатам (термостат -> канал реле, 6 шт.)
 #
 # Повторяющиеся сущности описываются шаблонами из templates/ через !include + vars:
 #   templates/modbus-sensor.yaml    одно значение регистра holding
 #   templates/online-status.yaml    бинарный сенсор «устройство на связи»
 #   templates/relay-switch.yaml     канал реле (бит в маске 0x0010)
 #   templates/ble-thermometer.yaml  BLE-термометр с watchdog'ом на 5 минут
+#   templates/climate-thermostat.yaml  климат комнаты (реле инвертировано)
 #
 # Порядок ключей packages: НЕ влияет на очередь опроса (она задаётся порядком
 # modbus_controller в bus.yaml), но списки из разных пакетов склеиваются в порядке
@@ -98,3 +100,4 @@ packages:
   boilers: !include packages/boilers.yaml
   relay: !include packages/relay.yaml
   ble: !include packages/ble.yaml
+  climate: !include packages/climate.yaml

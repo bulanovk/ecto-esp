@@ -1,0 +1,62 @@
+# ── Климат по комнатам: термостат -> канал реле ───────────────────────────────
+# Шесть комнат, каждая на своём канале реле 1-6. Каналы 7-10 свободны.
+#
+# Исключены сознательно: ATC Tech Room Temperature и ATC Living Room Temperature —
+# для них климат не создаётся (техпомещение и общая комната), хотя их сенсоры
+# объявлены в packages/ble.yaml.
+#
+# ЛОГИКА РЕЛЕ ИНВЕРТИРОВАНА: реле выключено, когда греть надо, и включено,
+# когда не надо. См. комментарий в templates/climate-thermostat.yaml.
+#
+# Раскладка:
+#   Relay 1  ← ATC Bedroom           → c_bedroom
+#   Relay 2  ← ATC Living Room Table → c_living_room_table
+#   Relay 3  ← ATC Hall              → c_hall
+#   Relay 4  ← ATC Guest Room        → c_guest_room
+#   Relay 5  ← ATC Bathroom          → c_bathroom
+#   Relay 6  ← ATC Childrens Room    → c_childrens_room
+#   Relay 7..10 — свободны
+
+climate:
+  - !include
+      file: ../templates/climate-thermostat.yaml
+      vars:
+        cid: c_bedroom
+        cname: "Bedroom Climate"
+        csensor: atc_bedroom_temperature
+        crelay: r1_relay_1
+  - !include
+      file: ../templates/climate-thermostat.yaml
+      vars:
+        cid: c_living_room_table
+        cname: "Living Room Table Climate"
+        csensor: atc_living_room_table_temperature
+        crelay: r1_relay_2
+  - !include
+      file: ../templates/climate-thermostat.yaml
+      vars:
+        cid: c_hall
+        cname: "Hall Climate"
+        csensor: atc_hall_temperature
+        crelay: r1_relay_3
+  - !include
+      file: ../templates/climate-thermostat.yaml
+      vars:
+        cid: c_guest_room
+        cname: "Guest Room Climate"
+        csensor: atc_guest_room_temperature
+        crelay: r1_relay_4
+  - !include
+      file: ../templates/climate-thermostat.yaml
+      vars:
+        cid: c_bathroom
+        cname: "Bathroom Climate"
+        csensor: atc_bathroom_temperature
+        crelay: r1_relay_5
+  - !include
+      file: ../templates/climate-thermostat.yaml
+      vars:
+        cid: c_childrens_room
+        cname: "Childrens Room Climate"
+        csensor: atc_childrens_room_temperature
+        crelay: r1_relay_6

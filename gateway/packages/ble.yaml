@@ -24,25 +24,25 @@ esp32_ble_tracker:
 sensor:
   - !include
       file: ../templates/ble-thermometer.yaml
-      vars: {smac: "A4:C1:38:3D:B4:56", sname: "ATC Bedroom Temperature"}
+      vars: {smac: "A4:C1:38:3D:B4:56", sid: atc_bedroom_temperature, sname: "ATC Bedroom Temperature"}
   - !include
       file: ../templates/ble-thermometer.yaml
-      vars: {smac: "A4:C1:38:4B:F5:95", sname: "ATC Living Room Table Temperature"}
+      vars: {smac: "A4:C1:38:4B:F5:95", sid: atc_living_room_table_temperature, sname: "ATC Living Room Table Temperature"}
   - !include
       file: ../templates/ble-thermometer.yaml
-      vars: {smac: "A4:C1:38:68:3A:F1", sname: "ATC Hall Temperature"}
+      vars: {smac: "A4:C1:38:68:3A:F1", sid: atc_hall_temperature, sname: "ATC Hall Temperature"}
   - !include
       file: ../templates/ble-thermometer.yaml
-      vars: {smac: "A4:C1:38:73:97:8C", sname: "ATC Guest Room Temperature"}
+      vars: {smac: "A4:C1:38:73:97:8C", sid: atc_guest_room_temperature, sname: "ATC Guest Room Temperature"}
   - !include
       file: ../templates/ble-thermometer.yaml
-      vars: {smac: "A4:C1:38:B7:55:95", sname: "ATC Bathroom Temperature"}
+      vars: {smac: "A4:C1:38:B7:55:95", sid: atc_bathroom_temperature, sname: "ATC Bathroom Temperature"}
   - !include
       file: ../templates/ble-thermometer.yaml
-      vars: {smac: "A4:C1:38:BB:95:0A", sname: "ATC Childrens Room Temperature"}
+      vars: {smac: "A4:C1:38:BB:95:0A", sid: atc_childrens_room_temperature, sname: "ATC Childrens Room Temperature"}
   - !include
       file: ../templates/ble-thermometer.yaml
-      vars: {smac: "A4:C1:38:F5:F6:59", sname: "ATC Tech Room Temperature"}
+      vars: {smac: "A4:C1:38:F5:F6:59", sid: atc_tech_room_temperature, sname: "ATC Tech Room Temperature"}
   - !include
       file: ../templates/ble-thermometer.yaml
-      vars: {smac: "A4:C1:38:F6:19:41", sname: "ATC Living Room Temperature"}
+      vars: {smac: "A4:C1:38:F6:19:41", sid: atc_living_room_temperature, sname: "ATC Living Room Temperature"}

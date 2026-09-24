@@ -3,6 +3,7 @@
 # vars:
 #   smac   — MAC-адрес термометра
 #   sname  — имя в HA (например "ATC Bedroom Temperature")
+#   sid    — id сенсора; на него ссылается климат из packages/climate.yaml
 #
 # bindkey НЕ задаём — в прошивке термометра шифрование выключено, и режим должен
 # совпадать строго: bthome_ble.cpp отбрасывает пакет и при `is_encrypted &&
@@ -17,6 +18,7 @@
 platform: bthome_mithermometer
 mac_address: "${smac}"
 temperature:
+  id: ${sid}
   name: "${sname}"
   filters:
     - timeout: 5min
