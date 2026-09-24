@@ -93,6 +93,12 @@ sensor:
   - platform: internal_temperature
     name: "Internal Temperature"
     id: "esp_temp"
+  # Аптайм с последней загрузки. type: seconds (дефолт) — просто счётчик, Time-компонент
+  # не нужен. Полезен как индикатор перезагрузок: скачок вниз = устройство упало/перешилось.
+  - platform: uptime
+    name: "Uptime"
+    id: "esp_uptime"
+    update_interval: 60s
 
 packages:
   bus: !include packages/bus.yaml
