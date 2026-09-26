@@ -11,6 +11,19 @@
 # ожидается 0x0100 (каналы 1-8 = биты 8-15, каналы 9-10 = биты 0-1).
 #
 # Таймеры реле (регистры 0x0020..0x0029) сознательно НЕ поддержаны — вне объёма.
+#
+# ЗОНЫ (какой канал какой комнатой управляет) — источник истины здесь, дублируется
+# комментариями у каждого канала в switch: ниже и таблицей в packages/climate.yaml:
+#   Relay 1  Living Room Table    термостат c_living_room_table
+#   Relay 2  Bathroom             термостат c_bathroom
+#   Relay 3  Guest Room           термостат c_guest_room
+#   Relay 4  Bedroom              термостат c_bedroom
+#   Relay 5  Childrens Room       термостат c_childrens_room
+#   Relay 6  Hall                 термостат c_hall
+#   Relay 7  резерв               —
+#   Relay 8  «дому нужен нагрев»  автоматизация r1_heat_demand
+#   Relay 9  резерв               —
+#   Relay 10 резерв               —
 
 binary_sensor:
   - !include
@@ -20,6 +33,57 @@ binary_sensor:
         sname: "R1 Relay Online"
         dev: r1_relay_device
         ctrl: r1
+
+  # ── Запрос тепла по дому -> канал 8 ────────────────────────────────────────
+  # ЗАВИСИТ ОТ ИНВЕРТИРОВАННОЙ ЛОГИКИ (см. templates/climate-thermostat.yaml):
+  # реле ВЫКЛЮЧЕНО, когда комната просит тепла. Поэтому OR по «реле ВЫКЛ» — это
+  # и есть «хоть одна комната просит тепла».
+  #
+  # delayed_on (без delayed_off) даёт ровно запрошенную асимметрию:
+  #   любое реле 1-6 продержалось OFF 180 с  -> реле 8 ВКЛ
+  #   все реле 1-6 перешли в ON              -> реле 8 ВЫКЛ (сразу)
+  # Таймер ставится на ПЕРЕХОДЕ false->true и снимается на обратном переходе
+  # (binary_sensor/filter.cpp, DelayedOnFilter::new_value -> set_timeout/cancel_timeout),
+  # поэтому опрос по расписанию и своё состояние в globals не нужны. Дедупликация
+  # входов в Filter::input гарантирует, что таймер не перезапускается, пока значение
+  # не менялось. on_press/on_release срабатывают на отфильтрованных переходах,
+  # поэтому автоматизация вызывается один раз на вход и один раз на выход.
+  #
+  # Читается ФАКТИЧЕСКОЕ состояние реле (switch_::Switch::state), которое публикует
+  # BitModbusSwitch::parse_and_publish из ответа опроса, а не то, что мы записали:
+  # поллинг r1 раз в 20 с пересинхронизирует состояние с железом (кнопки на панели,
+  # провалившиеся записи, штатные переключения термостатов).
+  #
+  # На загрузке реле ещё неизвестны и их state = false, поэтому lambda вернёт true и
+  # таймер стартует сразу; если запрос тепла реальный — так и должно быть. Выключения
+  # при этом не будет: on_release требует настоящего перехода, а первый ответ опроса
+  # (~20 с) публикует реальную маску. Физический выход реле 8 при ребуте не теряется —
+  # модуль держит свой регистр сам.
+  #
+  # trigger_on_initial_state: true — ОБЯЗАТЕЛЬНО. ESPHome по умолчанию ставит его в
+  # false (binary_sensor/__init__.py, setup_binary_sensor_core_), и тогда первый
+  # публикуемый state не вызывает колбэки. Без этого ключа ребут с уже висящим
+  # запросом тепла дал бы: таймер отработал, сенсор стал true, а on_press НЕ
+  # вызвался — реле 8 осталось бы выключенным до следующего реального перехода.
+  # С ключом первый state (после фильтра) вызывает on_press/on_release, как и надо.
+  #
+  # Сущность диагностическая: в HA видно, что именно удерживает реле 8 включённым.
+  - platform: template
+    id: r1_heat_demand
+    name: "R1 Heat Demand"
+    device_id: r1_relay_device
+    entity_category: diagnostic
+    trigger_on_initial_state: true
+    lambda: |-
+      return !id(r1_relay_1).state || !id(r1_relay_2).state ||
+             !id(r1_relay_3).state || !id(r1_relay_4).state ||
+             !id(r1_relay_5).state || !id(r1_relay_6).state;
+    filters:
+      - delayed_on: 180s
+    on_press:
+      - switch.turn_on: r1_relay_8
+    on_release:
+      - switch.turn_off: r1_relay_8
 
 sensor:
   # Сырая маска 10 каналов — диагностика: видно, какие биты реально выставлены.
@@ -35,33 +99,46 @@ sensor:
     entity_category: diagnostic
 
 switch:
+  # Канал 1 — Living Room Table. Управляется термостатом c_living_room_table
+  # (packages/climate.yaml). Инвертирован: OFF = комната просит тепла.
   - !include
       file: ../templates/relay-switch.yaml
       vars: {n: 1, smask: "0x0100"}
+  # Канал 2 — Bathroom (c_bathroom).
   - !include
       file: ../templates/relay-switch.yaml
       vars: {n: 2, smask: "0x0200"}
+  # Канал 3 — Guest Room (c_guest_room).
   - !include
       file: ../templates/relay-switch.yaml
       vars: {n: 3, smask: "0x0400"}
+  # Канал 4 — Bedroom (c_bedroom).
   - !include
       file: ../templates/relay-switch.yaml
       vars: {n: 4, smask: "0x0800"}
+  # Канал 5 — Childrens Room (c_childrens_room).
   - !include
       file: ../templates/relay-switch.yaml
       vars: {n: 5, smask: "0x1000"}
+  # Канал 6 — Hall (c_hall).
   - !include
       file: ../templates/relay-switch.yaml
       vars: {n: 6, smask: "0x2000"}
+  # Канал 7 — резерв, к термостату не привязан.
   - !include
       file: ../templates/relay-switch.yaml
       vars: {n: 7, smask: "0x4000"}
+  # Канал 8 — агрегированный сигнал «дому нужен нагрев» (см. r1_heat_demand выше).
+  # Термостата нет: включается автоматизацией, когда любое из реле 1-6 выключено
+  # дольше 180 с, выключается сразу, когда все 1-6 включились.
   - !include
       file: ../templates/relay-switch.yaml
       vars: {n: 8, smask: "0x8000"}
+  # Канал 9 — резерв, к термостату не привязан.
   - !include
       file: ../templates/relay-switch.yaml
       vars: {n: 9, smask: "0x0001"}
+  # Канал 10 — резерв, к термостату не привязан.
   - !include
       file: ../templates/relay-switch.yaml
       vars: {n: 10, smask: "0x0002"}

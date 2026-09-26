@@ -8,55 +8,64 @@
 # ЛОГИКА РЕЛЕ ИНВЕРТИРОВАНА: реле выключено, когда греть надо, и включено,
 # когда не надо. См. комментарий в templates/climate-thermostat.yaml.
 #
-# Раскладка:
-#   Relay 1  ← ATC Bedroom           → c_bedroom
-#   Relay 2  ← ATC Living Room Table → c_living_room_table
-#   Relay 3  ← ATC Hall              → c_hall
-#   Relay 4  ← ATC Guest Room        → c_guest_room
-#   Relay 5  ← ATC Bathroom          → c_bathroom
-#   Relay 6  ← ATC Childrens Room    → c_childrens_room
-#   Relay 7..10 — свободны
+# Раскладка (канал реле ← комната):
+#   Relay 1  ← ATC Living Room Table → c_living_room_table
+#   Relay 2  ← ATC Bathroom          → c_bathroom
+#   Relay 3  ← ATC Guest Room        → c_guest_room
+#   Relay 4  ← ATC Bedroom           → c_bedroom
+#   Relay 5  ← ATC Childrens Room    → c_childrens_room
+#   Relay 6  ← ATC Hall              → c_hall
+#   Relay 7..10 — не привязаны к термостатам. Реле 8 управляется автоматизацией
+#   «запрос тепла» из packages/relay.yaml (любое из 1-6 выключено 180 с -> 8 ВКЛ).
+# Тот же маппинг продублирован комментариями у каналов в packages/relay.yaml —
+# чтобы «какая зона у реле N» читалось и со стороны реле.
 
 climate:
-  - !include
-      file: ../templates/climate-thermostat.yaml
-      vars:
-        cid: c_bedroom
-        cname: "Bedroom Climate"
-        csensor: atc_bedroom_temperature
-        crelay: r1_relay_1
+  # Relay 1 — Living Room Table
   - !include
       file: ../templates/climate-thermostat.yaml
       vars:
         cid: c_living_room_table
         cname: "Living Room Table Climate"
         csensor: atc_living_room_table_temperature
-        crelay: r1_relay_2
-  - !include
-      file: ../templates/climate-thermostat.yaml
-      vars:
-        cid: c_hall
-        cname: "Hall Climate"
-        csensor: atc_hall_temperature
-        crelay: r1_relay_3
-  - !include
-      file: ../templates/climate-thermostat.yaml
-      vars:
-        cid: c_guest_room
-        cname: "Guest Room Climate"
-        csensor: atc_guest_room_temperature
-        crelay: r1_relay_4
+        crelay: r1_relay_1
+  # Relay 2 — Bathroom
   - !include
       file: ../templates/climate-thermostat.yaml
       vars:
         cid: c_bathroom
         cname: "Bathroom Climate"
         csensor: atc_bathroom_temperature
-        crelay: r1_relay_5
+        crelay: r1_relay_2
+  # Relay 3 — Guest Room
+  - !include
+      file: ../templates/climate-thermostat.yaml
+      vars:
+        cid: c_guest_room
+        cname: "Guest Room Climate"
+        csensor: atc_guest_room_temperature
+        crelay: r1_relay_3
+  # Relay 4 — Bedroom
+  - !include
+      file: ../templates/climate-thermostat.yaml
+      vars:
+        cid: c_bedroom
+        cname: "Bedroom Climate"
+        csensor: atc_bedroom_temperature
+        crelay: r1_relay_4
+  # Relay 5 — Childrens Room
   - !include
       file: ../templates/climate-thermostat.yaml
       vars:
         cid: c_childrens_room
         cname: "Childrens Room Climate"
         csensor: atc_childrens_room_temperature
+        crelay: r1_relay_5
+  # Relay 6 — Hall
+  - !include
+      file: ../templates/climate-thermostat.yaml
+      vars:
+        cid: c_hall
+        cname: "Hall Climate"
+        csensor: atc_hall_temperature
         crelay: r1_relay_6
